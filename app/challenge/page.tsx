@@ -136,11 +136,25 @@ export default function ChallengePage() {
             // Let's use a max interactive range of e.g. 150px to find a candidate to grade.
             const MAX_INTERACTION_RANGE = 200;
 
-            const pendingNotes = currentNotes.filter(n =>
+            let pendingNotes = currentNotes.filter(n =>
                 n.status === 'pending' &&
                 n.x > (HIT_X - MAX_INTERACTION_RANGE) &&
                 n.x < (HIT_X + MAX_INTERACTION_RANGE)
             );
+
+            // Fix: For MIDI input, filter by pitch first to prevent duplicate consecutive notes
+            // from both being validated with a single note input
+            if (input.type === 'midi' && pendingNotes.length > 0) {
+                const inputPitch = input.pitch! % 12;
+                // Filter to only notes with matching pitch
+                const matchingNotes = pendingNotes.filter(n => (n.note.midiNumber % 12) === inputPitch);
+                if (matchingNotes.length > 0) {
+                    // Use only matching notes - this ensures only the first matching note is validated
+                    pendingNotes = matchingNotes;
+                } else {
+                    // No matching pitch found - will show wrong note feedback
+                }
+            }
 
             if (pendingNotes.length === 0) return currentNotes;
 
@@ -154,7 +168,7 @@ export default function ChallengePage() {
 
             // Usage validation
             if (input.type === 'midi') {
-                // Check Patch
+                // Check Patch (should already match due to filtering above, but double-check for safety)
                 const isMatch = (input.pitch! % 12) === (targetNote.note.midiNumber % 12);
                 if (!isMatch) {
                     setCombo(0);
